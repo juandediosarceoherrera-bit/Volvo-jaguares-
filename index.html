@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOLVO | Monitor en Vivo</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+  body { background: #0A1628; color: white; min-height: 100vh; padding: 20px; }
+  .header { max-width: 700px; margin: 0 auto; text-align: center; }
+  .logo { background: white; color: #003057; font-weight: 900; font-size: 32px; letter-spacing: 12px; padding: 15px; border-radius: 12px; }
+  .logo span { color: #00A0DE; }
+  .sub { margin: 12px 0 5px; color: #A0B4D0; font-size: 14px; letter-spacing: 2px; }
+  .status { display: inline-block; background: #1A2B4A; padding: 6px 14px; border-radius: 20px; font-size: 13px; margin: 10px 0 20px; }
+  .dot { color: #FF3B30; }
+  .dot.on { color: #00E676; }
+  .btn { width: 100%; max-width: 700px; margin: 0 auto 20px; display: block; padding: 16px; background: #00A0DE; color: white; border: none; border-radius: 12px; font-size: 17px; font-weight: bold; cursor: pointer; }
+  .grid { max-width: 700px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+  .card { background: #1A2B4A; border: 1px solid #2A4A7A; border-radius: 16px; padding: 22px 15px; text-align: center; }
+  .card .valor { font-size: 42px; font-weight: 900; color: #00A0DE; }
+  .alerta { max-width: 700px; margin: 15px auto; background: #FF3B30; padding: 14px; border-radius: 12px; text-align: center; font-weight: bold; display: none; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">VOLVO<span>.</span></div>
+  <p class="sub">MONITOREO EN TIEMPO REAL</p>
+  <div class="status"><span id="punto" class="dot">●</span> <span id="estado">Desconectado</span></div>
+</div>
+<button id="conectar" class="btn">🔌 CONECTAR ARDUINO</button>
+<div id="alerta" class="alerta">⚠️ ¡OBSTÁCULO DETECTADO!</div>
+<div class="grid">
+  <div class="card"><p>🌡️ Temperatura Cabina</p><div class="valor"><span id="temp">--</span> °C</div></div>
+  <div class="card"><p>💧 Humedad Cabina</p><div class="valor"><span id="hum">--</span> %</div></div>
+  <div class="card"><p>🔋 Nivel / Sensor A0</p><div class="valor"><span id="nivel">--</span> %</div></div>
+  <div class="card"><p>🚗 Sensor Presencia</p><div class="valor" style="font-size:28px;"><span id="ir">--</span></div></div>
+</div>
+<script>
+let port;
+document.getElementById('conectar').onclick = async () => {
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 9600 });
+    document.getElementById('conectar').innerText = "✅ CONECTADO";
+    document.getElementById('estado').innerText = "Conectado";
+    document.getElementById('punto').classList.add('on');
+    const reader = port.readable.getReader();
+    let buffer = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += new TextDecoder().decode(value);
+      let lineas = buffer.split("\n");
+      buffer = lineas.pop();
+      for (let linea of lineas) {
+        linea = linea.trim();
+        if (linea.startsWith("TEMP:")) {
+          let partes = {};
+          linea.split(",").forEach(p => { let [k, v] = p.split(":"); partes[k] = v; });
+          document.getElementById('temp').innerText = partes["TEMP"];
+          document.getElementById('hum').innerText = partes["HUM"];
+          document.getElementById('nivel').innerText = partes["NIVEL"];
+          let esLibre = partes["IR"] == "1";
+          document.getElementById('ir').innerText = esLibre ? "Baño Libre" : "Ocupado ⚠️";
+          document.getElementById('alerta').style.display = esLibre ? "none" : "block";
+        }
+      }
+    }
+  } catch (e) { alert("No se pudo conectar: " + e.message); }
+};
+</script>
+</body>
+</html>
